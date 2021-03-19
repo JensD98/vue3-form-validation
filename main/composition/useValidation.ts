@@ -1,4 +1,4 @@
-import { reactive, Ref, ComputedRef, UnwrapRef } from 'vue';
+import { reactive, Ref, ComputedRef, UnwrapRef, ref } from 'vue';
 import Form from '../Form';
 import {
   cleanupForm,
@@ -6,55 +6,49 @@ import {
   path,
   PromiseCancel,
   resetFields,
-  transformFormData
+  transformFormData,
+  Narrow,
+  RefUnref
 } from '../utils';
 
 export type SimpleRule<T = any> = (value: T) => any;
 export type KeyedRule<T = any> = { key: string; rule: SimpleRule<T> };
 export type Rule<T = any> = SimpleRule<T> | KeyedRule<T>;
 
-export type Field<TValue> = {
-  $value: TValue extends Ref
-    ? TValue | UnwrapRef<TValue>
-    : TValue extends any[]
-    ? TValue
-    : TValue extends Record<string, unknown>
-    ? RefUnref<TValue>
-    : Ref<TValue> | TValue;
-  $rules?: Rule<UnwrapRef<TValue>>[];
-};
+export type Field<TValue, TManual = false> = TManual extends true
+  ? {
+      $value: RefUnref<TValue>;
+      $rules?: Rule<UnwrapRef<TValue>>[];
+      $manualValidation: TManual;
+    }
+  : {
+      $value: RefUnref<TValue>;
+      $rules?: Rule<UnwrapRef<TValue>>[];
+    };
 
 export type TransformedField<T> = {
   $uid: number;
   $value: T;
   $errors: string[];
+  $hasError: boolean;
   $validating: boolean;
-  $onBlur(): void;
+  $onBlur(): Promise<void>;
+  $validate(): Promise<void>;
 };
 
-export type RefUnref<T extends Record<string, unknown>> = {
-  [K in keyof T]: T[K] extends Ref
-    ? T[K] | UnwrapRef<T[K]>
-    : T[K] extends any[]
-    ? T[K]
-    : T[K] extends Record<string, unknown>
-    ? RefUnref<T[K]>
-    : Ref<T[K]> | T[K];
+export type TransformedFormData<T extends object> = {
+  [K in keyof T]: T[K] extends Field<infer TValue, true>
+    ? Omit<TransformedField<UnwrapRef<TValue>>, '$onBlur'>
+    : T[K] extends Field<infer TValue>
+    ? TransformedField<UnwrapRef<TValue>>
+    : T[K] extends Record<string, unknown> | any[]
+    ? TransformedFormData<T[K]>
+    : T[K];
 };
-
-export type TransformedFormData<T extends object> = T extends any
-  ? {
-      [K in keyof T]: T[K] extends { $value: infer TValue }
-        ? TransformedField<UnwrapRef<TValue>>
-        : T[K] extends Record<string, unknown> | any[]
-        ? TransformedFormData<T[K]>
-        : T[K];
-    }
-  : never;
 
 export type FormData<T extends object> = T extends any
   ? {
-      [K in keyof T]: T[K] extends { $value: infer TValue }
+      [K in keyof T]: T[K] extends Field<infer TValue>
         ? UnwrapRef<TValue>
         : T[K] extends Record<string, unknown> | any[]
         ? FormData<T[K]>
@@ -77,9 +71,10 @@ export type DeepIndex<T, Ks extends Keys> = Ks extends [
 type UseValidation<T extends object> = {
   form: TransformedFormData<T>;
   submitting: Ref<boolean>;
+  submitted: Ref<boolean>;
   errors: ComputedRef<string[]>;
   validateFields(): Promise<FormData<T>>;
-  resetFields(formData?: FormData<T>): void;
+  resetFields(formData?: Partial<FormData<T>>): void;
   add<Ks extends Keys>(
     pathToArray: readonly [...Ks],
     value: DeepIndex<T, Ks> extends Array<infer TArray> ? TArray : never
@@ -110,9 +105,12 @@ type UseValidation<T extends object> = {
  * const { ... } = useValidation<FormData>({ ... })
  * ```
  */
-export function useValidation<T extends object>(formData: T): UseValidation<T> {
+export function useValidation<T extends object>(
+  formData: Narrow<T>
+): UseValidation<T> {
   const form = new Form();
   const promiseCancel = new PromiseCancel<true>();
+  const submitted = ref(false);
 
   transformFormData(form, formData);
 
@@ -123,10 +121,13 @@ export function useValidation<T extends object>(formData: T): UseValidation<T> {
 
     submitting: form.submitting,
 
+    submitted,
+
     errors: form.getErrors(),
 
     async validateFields() {
       form.submitting.value = true;
+      submitted.value = true;
 
       const resultFormData = {};
       getResultFormData(transformedFormData, resultFormData);
@@ -149,7 +150,7 @@ export function useValidation<T extends object>(formData: T): UseValidation<T> {
 
       if (formData) {
         form.resetFields(false);
-        resetFields(transformedFormData, formData);
+        resetFields(formData, transformedFormData);
       } else {
         form.resetFields();
       }

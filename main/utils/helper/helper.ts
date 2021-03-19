@@ -3,16 +3,13 @@ import { Field, TransformedField } from '../../composition/useValidation';
 import useUid from '../../composition/useUid';
 import Form from '../../Form';
 
-const isField = <T>(field: any): field is Field<T> =>
+const isField = (
+  field: any
+): field is Field<unknown, false> & Partial<Field<unknown, true>> =>
   typeof field === 'object' ? '$value' in field : false;
 
 const isTransformedField = <T>(field: any): field is TransformedField<T> =>
-  typeof field === 'object'
-    ? '$uid' in field &&
-      '$value' in field &&
-      '$errors' in field &&
-      '$validating' in field
-    : false;
+  typeof field === 'object' ? '$uid' in field && '$value' in field : false;
 
 export function transformFormData(form: Form, formData: any) {
   Object.entries(formData).forEach(([key, value]) => {
@@ -24,24 +21,33 @@ export function transformFormData(form: Form, formData: any) {
         value.$value
       );
 
-      watch(formField.modelValue, () => {
-        if (formField.touched) {
-          form.validate(uid);
-        }
-      });
-
       formData[key] = {
         $uid: uid,
         $value: formField.modelValue,
         $errors: formField.getErrors(),
+        $hasError: formField.hasError(),
         $validating: formField.validating(),
         async $onBlur() {
           if (!formField.touched) {
             formField.touched = true;
             await form.validate(uid);
           }
+        },
+        async $validate() {
+          await form.validate(uid);
         }
       };
+
+      if (value.$manualValidation) {
+        formField.touched = true;
+        delete formData[key].$onBlur;
+      } else {
+        watch(formField.modelValue, () => {
+          if (formField.touched) {
+            form.validate(uid);
+          }
+        });
+      }
 
       return;
     }
@@ -52,20 +58,25 @@ export function transformFormData(form: Form, formData: any) {
   });
 }
 
-export function resetFields(transformedFormData: any, formData: any) {
-  Object.entries(transformedFormData).forEach(([key, value]) => {
-    if (isTransformedField(value)) {
-      if (isReactive(value.$value) && !Array.isArray(value.$value)) {
-        Object.assign(value.$value, formData[key]);
+export function resetFields(formData: any, transformedFormData: any) {
+  Object.entries(formData).forEach(([key, value]) => {
+    const transformedValue = transformedFormData[key];
+
+    if (isTransformedField(transformedValue)) {
+      if (
+        isReactive(transformedValue.$value) &&
+        !Array.isArray(transformedValue.$value)
+      ) {
+        Object.assign(transformedValue.$value, value);
       } else {
-        value.$value = formData[key];
+        transformedValue.$value = value;
       }
 
       return;
     }
 
     if (typeof value === 'object') {
-      resetFields(value, formData[key]);
+      resetFields(value, transformedFormData[key]);
     }
   });
 }

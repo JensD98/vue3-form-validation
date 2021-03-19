@@ -6,6 +6,6 @@
     "source.fixAll": true
   },
   "typescript.tsdk": "node_modules\\typescript\\lib",
-  "spellright.language": ["en"],
-  "spellright.documentTypes": ["markdown", "latex", "plaintext", "git-commit"]
+  "volar.tsPlugin": true,
+  "volar.style.defaultLanguage": "postcss"
 }

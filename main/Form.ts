@@ -42,7 +42,7 @@ export default class Form {
 
   submitting = ref(false);
 
-  registerField(uid: number, rules: Rule[], modelValue?: unknown) {
+  registerField(uid: number, rules: Rule[], modelValue: unknown) {
     const formField = new FormField(rules, modelValue);
 
     const simple = rules.reduce<Simple>(

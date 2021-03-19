@@ -38,6 +38,10 @@ export default class FormField {
     return computed(() => this.errors.filter(notNull));
   }
 
+  hasError() {
+    return computed(() => this.getErrors().value.length > 0);
+  }
+
   validating() {
     return computed(() => this.rulesValidating.value > 0);
   }

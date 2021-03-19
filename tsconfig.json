@@ -1,9 +1,15 @@
 {
   "compilerOptions": {
-    "lib": ["DOM", "ES2020"],
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "node",
     "strict": true,
+    "jsx": "preserve",
+    "sourceMap": true,
+    "resolveJsonModule": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  }
+    "lib": ["esnext", "dom"],
+    "types": ["vite/client", "node"]
+  },
+  "include": ["docs/**/*", "docs/.vitepress/**/*"]
 }

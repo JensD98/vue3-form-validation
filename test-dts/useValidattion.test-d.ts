@@ -1,12 +1,12 @@
 import { expectType, expectError } from 'tsd';
 import { ref, Ref } from 'vue';
 import {
-  RefUnref,
   Field,
   Rule,
   TransformedField,
   useValidation
 } from '../main/composition/useValidation';
+import { RefUnref } from '../main/utils';
 
 // ========== RefUnref (RU) ==========
 type RU1 = RefUnref<{ a: string }>;
@@ -36,12 +36,18 @@ expectType<RU3_Expected>({} as RU3);
 
 // ========== Field (FL) ==========
 type FL1 = Field<string>;
-type FL1_Expected = { $value: string | Ref<string>; $rules?: Rule<string>[] };
+type FL1_Expected = {
+  $value: string | Ref<string>;
+  $rules?: Rule<string>[];
+};
 
 expectType<FL1_Expected>({} as FL1);
 
 type FL2 = Field<Ref<string>>;
-type FL2_Expected = { $value: string | Ref<string>; $rules?: Rule<string>[] };
+type FL2_Expected = {
+  $value: string | Ref<string>;
+  $rules?: Rule<string>[];
+};
 
 expectType<FL2_Expected>({} as FL2);
 
@@ -62,7 +68,10 @@ type FL4_Expected = {
 expectType<FL4_Expected>({} as FL4);
 
 type FL5 = Field<string[]>;
-type FL5_Expected = { $value: string[]; $rules?: Rule<string[]>[] };
+type FL5_Expected = {
+  $value: string[];
+  $rules?: Rule<string[]>[];
+};
 
 expectType<FL5_Expected>({} as FL5);
 
